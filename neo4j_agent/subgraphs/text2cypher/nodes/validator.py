@@ -5,7 +5,6 @@ Based on LangGraph documentation: https://python.langchain.com/docs/tutorials/gr
 """
 
 import re
-from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
@@ -20,7 +19,6 @@ from neo4j_agent.utils.history import (
     format_history_for_prompt,
     get_conversation_history,
 )
-
 
 # =============================================================================
 # Pydantic Models for Structured Output
@@ -50,76 +48,45 @@ def create_semantic_validation_prompt() -> ChatPromptTemplate:
     """
 
     validate_cypher_system = """
-    You are a Cypher expert reviewing the SEMANTIC correctness of a query.
-    Your job is to check if the query retrieves the appropriate data that can be used to answer the user's question.
+    You are a Cypher expert reviewing queries for OBJECTIVE LOGICAL ERRORS ONLY.
 
-    CRITICAL: Cypher's role is DATA RETRIEVAL, not data processing.
-    - The query should return the raw data needed to answer the question
-    - Post-processing (formatting, analysis, summarization) happens AFTER the query executes
-    - A query is correct if it returns data containing the information requested, even if that data needs further processing
-    - If a query returns paths or nodes that contain the labels/properties needed to answer the question, it is correct
+    Your job: Catch bugs that would cause failures or incorrect results.
+    NOT your job: Question filter choices, critique WHERE clause conditions, or second-guess query structure.
 
-    Focus on whether the query gets the right data, not whether it formats or processes that data.
-
-    DO NOT check schema validity, property existence, or label existence - those are handled separately.
+    The query generator is context-aware and makes intelligent decisions.
+    Trust its choices unless there's a clear logical error.
     """
 
-    validate_cypher_user = """Check ONLY these semantic issues:
+    validate_cypher_user = """Check for OBJECTIVE errors that would cause failures:
 
-    1. **Does the query match the question's intent?**
-       - Is it querying the correct node/relationship types mentioned in the question?
-       - Does the pattern structure make sense for what's being asked?
-       - IMPORTANT: Do NOT check if specific properties exist - that's handled by Neo4j EXPLAIN separately
-       - A query is VALID if it targets the right entities, regardless of which properties it returns
+    1. **Undefined variables**
+       - Variables used in WHERE/RETURN that weren't defined in MATCH
 
-    2. **Are there logical errors?**
-       - Undefined variables used in WHERE/RETURN clauses
-       - Contradictory conditions (e.g., age < 20 AND age > 60)
-       - Incorrect aggregations or groupings
+    2. **Logical contradictions**
+       - Mutually exclusive conditions (e.g., x < 10 AND x > 100)
 
-    3. **Are critical elements missing?**
-       - Missing ORDER BY for "top N" questions
-       - Missing LIMIT for questions asking for specific counts
-       - Missing database aggregations (COUNT, SUM, AVG, MAX, MIN) when the question explicitly asks for counts,
-         totals, averages, or other statistical computations that should be done in the database
+    3. **Missing critical elements**
+       - Missing ORDER BY when question asks "top N"
+       - Missing aggregation (COUNT/SUM/AVG) when question explicitly asks for it
+       - Missing LIMIT (should almost always be present)
 
-    4. **Semantic context validation:**
-       - Based on the conversation context, determine if this question appears to be:
-         * Requesting ADDITIONAL information about entities from recent queries
-         * EXPANDING or MODIFYING a previous analysis
-         * A completely NEW and unrelated topic
-       - If the question semantically appears to be building on recent queries:
-         * Check if the query appropriately maintains entity context (filters, properties)
-       - If context seems missing when it should be present, flag as an error
-       - Use semantic understanding, not specific word patterns
-
-    5. **Are there obvious performance issues?**
+    4. **Performance issues**
        - Unintentional cartesian products
-       - Patterns that will return excessive data
+       - Patterns returning excessive data without LIMIT
 
-    DO NOT report errors about:
-    - Properties not existing in the schema (the query should work with available properties)
-    - Labels not existing in the schema
-    - Relationships not existing in the schema
-    - Case sensitivity of names
-    - Schema-related issues (handled separately)
-    - Missing text summarization/analysis (e.g., "summarize the feedback", "categorize these responses")
-      - Text analysis happens AFTER data retrieval by downstream LLM processing
-    - Missing visualization/formatting logic (visualization is done by the UI with the returned data)
-
-    DATABASE SCHEMA (defines what properties ACTUALLY exist):
-    {schema}
-
-    The user's question:
-    {question}
+    DO NOT flag as errors:
+    - WHERE clause filters or conditions (generator's decision)
+    - Query structure choices (generator's decision)
+    - Schema compliance (handled by syntax validation)
 
     {conversation_context}
 
-    The Cypher statement to validate:
-    {cypher}
+    Question: {question}
+    Query: {cypher}
+    Schema: {schema}
 
-    VALIDATION RULE: If the user asks for properties that don't exist in the schema above, the query is VALID
-    as long as it returns the correct node types. The downstream summarizer will explain what data is available."""
+    Report only ACTUAL BUGS that would cause failures.
+    If the query will execute and return relevant data, it's VALID."""
 
     return ChatPromptTemplate.from_messages(
         [
@@ -234,7 +201,14 @@ def create_validator_node(
         Returns:
             State updates with validation results (sets error if invalid, clears if valid)
         """
-        cypher_query = state.get("cypher_query")
+        from neo4j_agent.utils.state_helpers import (
+            create_text2cypher_update,
+            get_text2cypher_output,
+            update_last_trace_entry,
+        )
+
+        text2cypher_output = get_text2cypher_output(state)
+        cypher_query = text2cypher_output.get("cypher_query")
         question = state.get("question", "")
 
         if not cypher_query:
@@ -259,7 +233,6 @@ def create_validator_node(
             checkpointer,
             config,
             query_settings.conversation_history_limit,
-            include_answers=False,
         )
 
         # Format conversation context
@@ -267,8 +240,6 @@ def create_validator_node(
         if history:
             conversation_context = "Recent queries from this conversation:\n"
             conversation_context += format_history_for_prompt(history, prefix="")
-
-        # Schema is already a formatted string from get_schema()
 
         # Perform LLM-based semantic validation
         semantic_result = validate_chain.invoke(
@@ -286,18 +257,16 @@ def create_validator_node(
 
         # Return result
         if all_errors:
-            # Track validation history for execution summary
-            validation_history = state.get("validation_history", [])
-            retry_count = state.get("retry_count", 0)
-            error_summary = f"Attempt {retry_count + 1}:\n" + "\n".join(f"  - {err}" for err in all_errors)
-            validation_history.append(error_summary)
+            # Update query generation trace with validation errors
+            trace = update_last_trace_entry(state, validation_errors=all_errors)
 
             # Join all errors into single error message
             error_message = "\n".join(f"- {err}" for err in all_errors)
             return {
                 "error": error_message,
-                "validation_history": validation_history,
-                "failed_at_node": "validator"
+                **create_text2cypher_update(
+                    query_generation_trace=trace, failed_at_node="validator"
+                ),
             }
         else:
             # All validations passed - explicitly clear error

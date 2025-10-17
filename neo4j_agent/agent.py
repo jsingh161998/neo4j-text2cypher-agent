@@ -48,7 +48,7 @@ def create_text2cypher_workflow(settings: AppSettings | None = None):
     retriever = ExampleRetriever(settings)
 
     # Get schema with caching
-    schema = get_schema(graph, cache_path=settings.neo4j.schema_cache_path)
+    schema = get_schema(graph, cache_path=settings.schema_cache_path())
 
     # Create checkpointer (will be shared with nodes for history access)
     checkpointer = InMemorySaver()

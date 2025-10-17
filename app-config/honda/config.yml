@@ -22,7 +22,6 @@ query_processing:
   result_limit: 50                   # Max rows returned by Cypher queries
   retriever_limit: 5                 # Number of similar questions and cypher pair examples to retrieve
   conversation_history_limit: 5      # Number of previous Q&A pairs to include in prompts
-  include_answers_in_history: false  # Include final answers in context (increases token cost)
   max_correction_retries: 3          # Maximum attempts to correct invalid Cypher queries
 
 ui:

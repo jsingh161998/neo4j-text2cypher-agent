@@ -1,9 +1,9 @@
 """Configuration management using Pydantic Settings."""
+
 from pathlib import Path
 from typing import Literal
 
 import yaml
-from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -37,16 +37,7 @@ class Neo4jSettings(BaseSettings):
     password: str
     database: str = Field(default="neo4j")
 
-    model_config = SettingsConfigDict(
-        env_prefix="NEO4J_",
-        env_file=".env",
-        extra="ignore"
-    )
-
-    @property
-    def schema_cache_path(self) -> str:
-        """Get schema cache path based on database name."""
-        return f"app-config/neo4j_schema/{self.database}_schema.json"
+    model_config = SettingsConfigDict(env_prefix="NEO4J_", env_file=".env", extra="ignore")
 
 
 class CypherExample(BaseModel):
@@ -62,7 +53,6 @@ class QueryProcessingSettings(BaseSettings):
     result_limit: int = Field(default=50)
     retriever_limit: int = Field(default=10)
     conversation_history_limit: int = Field(default=10)
-    include_answers_in_history: bool = Field(default=False)  # Include final_answer in context
     max_correction_retries: int = Field(default=3)  # Maximum correction attempts for invalid Cypher
 
     model_config = SettingsConfigDict(extra="ignore")
@@ -95,12 +85,18 @@ class AppSettings(BaseSettings):
     query_processing: QueryProcessingSettings = Field(default_factory=QueryProcessingSettings)
     ui: UISettings = Field(default_factory=UISettings)
     cypher_examples: list[CypherExample] = Field(default_factory=list)
+    config_file_path: Path  # Store config location for schema cache path
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_nested_delimiter="__",
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_nested_delimiter="__", extra="ignore")
+
+    def schema_cache_path(self) -> str:
+        """Get schema cache path relative to config directory.
+
+        Pattern: {config_dir}/neo4j_database_schema/{database}_schema.json
+        Example: app-config/honda/neo4j_database_schema/honda_schema.json
+        """
+        config_dir = self.config_file_path.parent
+        return str(config_dir / "neo4j_database_schema" / f"{self.neo4j.database}_schema.json")
 
     @classmethod
     def from_yaml(cls, yaml_path: str | Path = "app-config/config.yml") -> "AppSettings":
@@ -109,7 +105,7 @@ class AppSettings(BaseSettings):
         LLM settings loaded entirely from YAML (no env override).
         Neo4j credentials loaded from ENV (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD).
         """
-        yaml_path = Path(yaml_path)
+        yaml_path = Path(yaml_path).resolve()  # Make absolute
         if not yaml_path.exists():
             msg = f"Configuration file not found: {yaml_path}"
             raise FileNotFoundError(msg)
@@ -146,4 +142,5 @@ class AppSettings(BaseSettings):
             ui=ui_settings,
             query_processing=query_processing_settings,
             cypher_examples=cypher_examples,
+            config_file_path=yaml_path,  # Store the path
         )

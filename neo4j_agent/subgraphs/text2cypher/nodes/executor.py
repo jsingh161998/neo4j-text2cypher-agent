@@ -53,12 +53,18 @@ def create_executor_node(graph: Neo4jGraph):
         Returns:
             State updates with query results (serializable only)
         """
-        cypher_query = state.get("cypher_query", "")
+        from neo4j_agent.utils.state_helpers import get_text2cypher_output, create_text2cypher_update
+
+        text2cypher_output = get_text2cypher_output(state)
+        cypher_query = text2cypher_output.get("cypher_query", "")
 
         if not cypher_query or not cypher_query.strip():
             return {
-                "query_results": [],
                 "error": "No Cypher query to execute",
+                **create_text2cypher_update(
+                    query_results=[],
+                    failed_at_node="executor"
+                )
             }
 
         # Execute query with session approach to get Result object for visualization
@@ -82,17 +88,21 @@ def create_executor_node(graph: Neo4jGraph):
 
             # Return only serializable state updates
             return {
-                "query_results": records if records else [],
-                "execution_time": execution_time,
                 "error": None,  # Clear any previous errors
+                **create_text2cypher_update(
+                    query_results=records if records else [],
+                    execution_time=execution_time
+                )
             }
 
         except Exception as e:
             error_msg = f"Execution error: {str(e)}"
             return {
-                "query_results": [],
                 "error": error_msg,
-                "failed_at_node": "executor"
+                **create_text2cypher_update(
+                    query_results=[],
+                    failed_at_node="executor"
+                )
             }
 
     return execute_cypher

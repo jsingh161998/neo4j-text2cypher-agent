@@ -16,7 +16,6 @@ from neo4j_agent.utils.history import (
     get_conversation_history,
 )
 
-
 # =============================================================================
 # Summarization Prompt Template
 # =============================================================================
@@ -99,8 +98,11 @@ def create_summarizer_node(
         Returns:
             State updates with final_answer
         """
+        from neo4j_agent.utils.state_helpers import get_text2cypher_output
+
         question = state.get("question", "")
-        query_results = state.get("query_results")
+        text2cypher_output = get_text2cypher_output(state)
+        query_results = text2cypher_output.get("query_results")
 
         # Handle empty or missing results
         if not query_results:
@@ -111,7 +113,6 @@ def create_summarizer_node(
             checkpointer,
             config,
             query_settings.conversation_history_limit,
-            include_answers=query_settings.include_answers_in_history,
         )
 
         # Format conversation context

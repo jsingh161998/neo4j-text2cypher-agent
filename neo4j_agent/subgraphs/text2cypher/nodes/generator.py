@@ -9,11 +9,10 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from neo4j_agent.state import WorkflowState
 from neo4j_agent.utils.config import QueryProcessingSettings
 from neo4j_agent.utils.history import (
-    get_conversation_history,
     format_history_for_prompt,
+    get_conversation_history,
 )
 from neo4j_agent.utils.retriever import ExampleRetriever
-
 
 # =============================================================================
 # Generation Prompt Templates
@@ -120,8 +119,9 @@ def create_generator_node(
         # Get session settings from config (runtime), fallback to defaults
         configurable = config.get("configurable", {})
         result_limit = configurable.get("result_limit", query_settings.result_limit)
-        conversation_history_limit = configurable.get("conversation_history_limit", query_settings.conversation_history_limit)
-        include_answers_in_history = configurable.get("include_answers_in_history", query_settings.include_answers_in_history)
+        conversation_history_limit = configurable.get(
+            "conversation_history_limit", query_settings.conversation_history_limit
+        )
 
         # Create prompt with runtime result_limit
         generation_prompt = create_generation_prompt_template(result_limit)
@@ -137,12 +137,13 @@ def create_generator_node(
             checkpointer,
             config,
             conversation_history_limit,
-            include_answers_in_history,
         )
 
         # Append conversation history to examples (treated as additional examples)
         if history:
-            history_context = format_history_for_prompt(history, prefix="Recent queries from this conversation")
+            history_context = format_history_for_prompt(
+                history, prefix="Recent queries from this conversation"
+            )
             full_examples = examples + history_context
         else:
             full_examples = examples
@@ -155,10 +156,28 @@ def create_generator_node(
             }
         )
 
+        # Initialize text2cypher_output with query generation trace
+        from neo4j_agent.utils.state_helpers import append_to_query_trace, create_text2cypher_update
+
+        trace = append_to_query_trace(
+            state,
+            attempt=1,
+            query=generated_cypher,
+            source="generator",
+            validation_errors=[],  # No errors yet, validator will check
+        )
+
         return {
-            "cypher_query": generated_cypher,
+            **create_text2cypher_update(
+                cypher_query=generated_cypher,
+                retry_count=0,
+                query_generation_trace=trace,
+                query_results=None,
+                execution_time=None,
+                failed_at_node=None,
+            ),
             "num_examples_used": num_examples,
-            "num_history_items": len(history)
+            "num_history_items": len(history),
         }
 
     return generate_cypher

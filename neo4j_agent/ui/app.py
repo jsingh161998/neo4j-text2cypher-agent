@@ -3,6 +3,7 @@
 This module provides a modern web interface using NiceGUI 3.0 with custom Neo4j-inspired theme.
 """
 
+import argparse
 import asyncio
 from pathlib import Path
 
@@ -23,21 +24,34 @@ from neo4j_agent.utils.schema import get_schema
 # Load environment variables from .env file
 load_dotenv()
 
-# Global app state (initialized once at startup)
-settings: AppSettings | None = None
+# Parse CLI arguments for config path
+parser = argparse.ArgumentParser(
+    description='Neo4j Text2Cypher Agent - Natural language to Cypher queries'
+)
+parser.add_argument(
+    'config_path',
+    help='Path to application config YAML file (e.g., app-config/honda/config.yml)'
+)
+args = parser.parse_args()
+config_path = Path(args.config_path).resolve()
+
+# Validate config file exists
+if not config_path.exists():
+    parser.error(f"Config file not found: {config_path}")
+
+# Load settings once (used by ui.run() and initialize_app())
+settings = AppSettings.from_yaml(config_path)
+
+# Global app state (initialized at startup)
 workflow = None
 graph = None
 
 
 def initialize_app():
     """Initialize application components once at startup."""
-    global settings, workflow, graph
+    global workflow, graph  # settings already loaded at module level
 
-    print("Initializing IQS Data Explorer...")
-
-    # Load configuration
-    config_path = Path(__file__).parent.parent.parent / 'app-config' / 'config.yml'
-    settings = AppSettings.from_yaml(config_path)
+    print(f"Initializing {settings.ui.title}...")
     print("✅ Configuration loaded")
 
     # Connect to Neo4j
@@ -45,7 +59,7 @@ def initialize_app():
     print("✅ Neo4j connected")
 
     # Load database schema
-    schema = get_schema(graph, cache_path=settings.neo4j.schema_cache_path)
+    schema = get_schema(graph, cache_path=settings.schema_cache_path())
     print("✅ Schema loaded")
 
     # Initialize LLM
@@ -135,7 +149,7 @@ def index():
 
 if __name__ in {"__main__", "__mp_main__"}:
     ui.run(
-        title='IQS Data Explorer',
+        title=settings.ui.title,
         port=8080,
         reload=True,
         show=True,  # Auto-open browser on startup

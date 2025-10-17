@@ -25,16 +25,15 @@ def create_settings_modal(settings: AppSettings) -> callable:
 
     def get_session_settings() -> dict:
         """Get current session settings or defaults from config.yml."""
-        if 'query_settings' not in app.storage.client:
+        if "query_settings" not in app.storage.client:
             # Initialize with defaults from YAML
-            app.storage.client['query_settings'] = {
-                'result_limit': settings.query_processing.result_limit,
-                'retriever_limit': settings.query_processing.retriever_limit,
-                'conversation_history_limit': settings.query_processing.conversation_history_limit,
-                'max_correction_retries': settings.query_processing.max_correction_retries,
-                'include_answers_in_history': settings.query_processing.include_answers_in_history,
+            app.storage.client["query_settings"] = {
+                "result_limit": settings.query_processing.result_limit,
+                "retriever_limit": settings.query_processing.retriever_limit,
+                "conversation_history_limit": settings.query_processing.conversation_history_limit,
+                "max_correction_retries": settings.query_processing.max_correction_retries,
             }
-        return app.storage.client['query_settings']
+        return app.storage.client["query_settings"]
 
     def open_settings():
         """Open settings modal dialog."""
@@ -44,129 +43,136 @@ def create_settings_modal(settings: AppSettings) -> callable:
 
         # Check if settings are view-only
         view_only = settings.ui.view_only_settings
-        disabled_prop = 'disable' if view_only else ''
+        disabled_prop = "disable" if view_only else ""
 
-        with ui.dialog() as dialog, ui.card().classes('settings-modal'):
+        with ui.dialog() as dialog, ui.card().classes("settings-modal"):
             # Header with dark blue background (matching expansion headers)
-            with ui.row().classes('w-full items-center justify-between settings-header'):
-                with ui.row().classes('items-center gap-3'):
-                    ui.icon('tune', size='md')
-                    title_text = 'Application Settings (View Only)' if view_only else 'Application Settings'
-                    ui.label(title_text).classes('text-h6')
-                ui.button(icon='close', on_click=dialog.close).props('flat round dense')
+            with ui.row().classes("w-full items-center justify-between settings-header"):
+                with ui.row().classes("items-center gap-3"):
+                    ui.icon("tune", size="md")
+                    title_text = (
+                        "Application Settings (View Only)" if view_only else "Application Settings"
+                    )
+                    ui.label(title_text).classes("text-h6")
+                ui.button(icon="close", on_click=dialog.close).props("flat round dense")
 
             # Settings content area (Streamlit charcoal in dark mode)
-            with ui.column().classes('w-full gap-0 settings-content'):
-
+            with ui.column().classes("w-full gap-0 settings-content"):
                 # Result Limit
-                ui.label('Result Limit').classes('font-semibold mb-1').style('color: var(--neo4j-text-primary)')
-                result_limit_slider = ui.slider(
-                    min=10, max=100, step=10, value=current_settings['result_limit']
-                ).props(f'color="primary" label label-always label-color="primary" {disabled_prop}').classes('mb-1 settings-slider')
-                ui.label('Maximum number of rows to return from Cypher queries').classes('text-sm mb-3').style(
-                    'color: var(--neo4j-text-secondary)'
+                ui.label("Result Limit").classes("font-semibold mb-1").style(
+                    "color: var(--neo4j-text-primary)"
                 )
+                result_limit_slider = (
+                    ui.slider(min=10, max=100, step=10, value=current_settings["result_limit"])
+                    .props(
+                        f'color="primary" label label-always label-color="primary" {disabled_prop}'
+                    )
+                    .classes("mb-1 settings-slider")
+                )
+                ui.label("Maximum number of rows to return from Cypher queries").classes(
+                    "text-sm mb-3"
+                ).style("color: var(--neo4j-text-secondary)")
 
-                ui.separator().classes('mb-3').style('background: var(--neo4j-border)')
+                ui.separator().classes("mb-3").style("background: var(--neo4j-border)")
 
                 # Retriever Limit
-                ui.label('Example Retriever Limit').classes('font-semibold mb-1').style('color: var(--neo4j-text-primary)')
-                retriever_limit_slider = ui.slider(
-                    min=1, max=10, step=1, value=current_settings['retriever_limit']
-                ).props(f'color="primary" label label-always label-color="primary" {disabled_prop}').classes('mb-1 settings-slider')
-                ui.label('Number of similar example queries to retrieve').classes('text-sm mb-3').style(
-                    'color: var(--neo4j-text-secondary)'
+                ui.label("Example Retriever Limit").classes("font-semibold mb-1").style(
+                    "color: var(--neo4j-text-primary)"
                 )
+                retriever_limit_slider = (
+                    ui.slider(min=1, max=10, step=1, value=current_settings["retriever_limit"])
+                    .props(
+                        f'color="primary" label label-always label-color="primary" {disabled_prop}'
+                    )
+                    .classes("mb-1 settings-slider")
+                )
+                ui.label("Number of similar example queries to retrieve").classes(
+                    "text-sm mb-3"
+                ).style("color: var(--neo4j-text-secondary)")
 
-                ui.separator().classes('mb-3').style('background: var(--neo4j-border)')
+                ui.separator().classes("mb-3").style("background: var(--neo4j-border)")
 
                 # Conversation History Limit
-                ui.label('Conversation History Limit').classes('font-semibold mb-1').style('color: var(--neo4j-text-primary)')
-                history_limit_slider = ui.slider(
-                    min=1, max=10, step=1, value=current_settings['conversation_history_limit']
-                ).props(f'color="primary" label label-always label-color="primary" {disabled_prop}').classes('mb-1 settings-slider')
-                ui.label('Number of previous Q&A pairs to include in prompts').classes('text-sm mb-3').style(
-                    'color: var(--neo4j-text-secondary)'
+                ui.label("Conversation History Limit").classes("font-semibold mb-1").style(
+                    "color: var(--neo4j-text-primary)"
                 )
+                history_limit_slider = (
+                    ui.slider(
+                        min=1, max=10, step=1, value=current_settings["conversation_history_limit"]
+                    )
+                    .props(
+                        f'color="primary" label label-always label-color="primary" {disabled_prop}'
+                    )
+                    .classes("mb-1 settings-slider")
+                )
+                ui.label("Number of previous Q&A pairs to include in prompts").classes(
+                    "text-sm mb-3"
+                ).style("color: var(--neo4j-text-secondary)")
 
-                ui.separator().classes('mb-3').style('background: var(--neo4j-border)')
+                ui.separator().classes("mb-3").style("background: var(--neo4j-border)")
 
                 # Max Correction Retries
-                ui.label('Max Correction Retries').classes('font-semibold mb-1').style('color: var(--neo4j-text-primary)')
-                retries_slider = ui.slider(
-                    min=1, max=5, step=1, value=current_settings['max_correction_retries']
-                ).props(f'color="primary" label label-always label-color="primary" {disabled_prop}').classes('mb-1 settings-slider')
-                ui.label('Maximum attempts to fix invalid Cypher queries').classes('text-sm mb-3').style(
-                    'color: var(--neo4j-text-secondary)'
+                ui.label("Max Correction Retries").classes("font-semibold mb-1").style(
+                    "color: var(--neo4j-text-primary)"
                 )
-
-                ui.separator().classes('mb-3').style('background: var(--neo4j-border)')
-
-                # Include Answers Checkbox
-                include_answers_checkbox = ui.checkbox(
-                    'Include answers in conversation history',
-                    value=current_settings['include_answers_in_history']
-                )
-                if view_only:
-                    include_answers_checkbox.disable()
-                include_answers_checkbox.classes('settings-checkbox')
-                with ui.row().classes('ml-8'):
-                    ui.label('(Increases token usage but provides more context)').classes('text-sm').style(
-                        'color: var(--neo4j-text-muted)'
+                retries_slider = (
+                    ui.slider(
+                        min=1, max=5, step=1, value=current_settings["max_correction_retries"]
                     )
+                    .props(
+                        f'color="primary" label label-always label-color="primary" {disabled_prop}'
+                    )
+                    .classes("mb-1 settings-slider")
+                )
+                ui.label("Maximum attempts to fix invalid Cypher queries").classes(
+                    "text-sm mb-3"
+                ).style("color: var(--neo4j-text-secondary)")
 
             # Action Buttons (outside content area, at bottom)
             if not view_only:
-                ui.separator().style('background: var(--neo4j-border)')
+                ui.separator().style("background: var(--neo4j-border)")
 
-                with ui.row().classes('w-full justify-between p-4'):
+                with ui.row().classes("w-full justify-between p-4"):
                     ui.button(
-                        'Reset to Defaults',
+                        "Reset to Defaults",
                         on_click=lambda: reset_to_defaults(
                             result_limit_slider,
                             retriever_limit_slider,
                             history_limit_slider,
                             retries_slider,
-                            include_answers_checkbox
-                        )
-                    ).props('flat').classes('reset-defaults-btn')
+                        ),
+                    ).props("flat").classes("reset-defaults-btn")
 
                     ui.button(
-                        'Save Changes',
-                        icon='save',
+                        "Save Changes",
+                        icon="save",
                         on_click=lambda: save_settings(
                             dialog,
                             result_limit_slider.value,
                             retriever_limit_slider.value,
                             history_limit_slider.value,
                             retries_slider.value,
-                            include_answers_checkbox.value
-                        )
-                    ).style(
-                        'background: #0A6190 !important; '
-                        'color: white !important;'
-                    )
+                        ),
+                    ).style("background: #0A6190 !important; color: white !important;")
 
-        def reset_to_defaults(result_slider, retriever_slider, history_slider, retries_slider, answers_checkbox):
+        def reset_to_defaults(result_slider, retriever_slider, history_slider, retries_slider):
             """Reset all settings to defaults from config.yml."""
             result_slider.value = settings.query_processing.result_limit
             retriever_slider.value = settings.query_processing.retriever_limit
             history_slider.value = settings.query_processing.conversation_history_limit
             retries_slider.value = settings.query_processing.max_correction_retries
-            answers_checkbox.value = settings.query_processing.include_answers_in_history
 
-        def save_settings(dialog, result_limit, retriever_limit, history_limit, max_retries, include_answers):
+        def save_settings(dialog, result_limit, retriever_limit, history_limit, max_retries):
             """Save settings to session storage (per-user, no YAML write)."""
             # Store in session storage (persists until session reset/timeout)
-            app.storage.client['query_settings'] = {
-                'result_limit': int(result_limit),
-                'retriever_limit': int(retriever_limit),
-                'conversation_history_limit': int(history_limit),
-                'max_correction_retries': int(max_retries),
-                'include_answers_in_history': include_answers,
+            app.storage.client["query_settings"] = {
+                "result_limit": int(result_limit),
+                "retriever_limit": int(retriever_limit),
+                "conversation_history_limit": int(history_limit),
+                "max_correction_retries": int(max_retries),
             }
             dialog.close()
-            ui.notify('Settings saved for this session', type='positive', position='top')
+            ui.notify("Settings saved for this session", type="positive", position="top")
 
         dialog.open()
 

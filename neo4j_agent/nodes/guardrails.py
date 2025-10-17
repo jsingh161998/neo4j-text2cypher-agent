@@ -1,4 +1,5 @@
 """Guardrails node for validating if questions are in scope."""
+
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
@@ -7,10 +8,9 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from neo4j_agent.state import WorkflowState
 from neo4j_agent.utils.config import QueryProcessingSettings
 from neo4j_agent.utils.history import (
-    get_conversation_history,
     format_history_for_prompt,
+    get_conversation_history,
 )
-
 
 # =============================================================================
 # Guardrails Prompt
@@ -68,7 +68,6 @@ def create_guardrails_node(
             checkpointer,
             config,
             query_settings.conversation_history_limit,
-            query_settings.include_answers_in_history,
         )
         history_context = format_history_for_prompt(history)
 
@@ -84,10 +83,7 @@ def create_guardrails_node(
 
         # Build human message with history
         human_message = (
-            scope_context
-            + graph_context
-            + history_context
-            + f"\n\nCurrent Question: {question}"
+            scope_context + graph_context + history_context + f"\n\nCurrent Question: {question}"
         )
 
         # Check with LLM
@@ -105,9 +101,34 @@ def create_guardrails_node(
                 "error": "Question is out of scope for this system. "
                 "Please ask questions about data in the graph database.",
                 "final_answer": None,
+                # Clear previous turn's state to prevent pollution
+                "text2cypher_output": {
+                    "cypher_query": None,
+                    "query_results": None,
+                    "execution_time": None,
+                    "retry_count": 0,
+                    "query_generation_trace": [],
+                    "failed_at_node": "guardrails",
+                },
+                "num_examples_used": None,
+                "num_history_items": None,
             }
 
-        # Question is valid, continue (clear any previous error)
-        return {"error": None}
+        # Question is valid, continue
+        # Clear previous turn's state to start fresh (prevents stale data in checkpoints)
+        return {
+            "error": None,
+            "final_answer": None,
+            "text2cypher_output": {
+                "cypher_query": None,
+                "query_results": None,
+                "execution_time": None,
+                "retry_count": 0,
+                "query_generation_trace": [],
+                "failed_at_node": None,
+            },
+            "num_examples_used": None,
+            "num_history_items": None,
+        }
 
     return validate_question

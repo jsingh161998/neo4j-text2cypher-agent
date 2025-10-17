@@ -180,6 +180,9 @@ def create_chat_area(
             """
             has_error = final_state.get('error') is not None
 
+            # Get text2cypher_output (nested state)
+            text2cypher_output = final_state.get('text2cypher_output', {})
+
             # ========================================
             # ERROR PATH
             # ========================================
@@ -189,9 +192,13 @@ def create_chat_area(
                     'color: #E74C3C;'
                 )
 
-                # 2. Show the problematic Cypher query
-                cypher = final_state.get('cypher_query')
-                if cypher:
+                # 2. Show the problematic Cypher query (only if it's from this turn, not previous)
+                # If failed_at_node is 'guardrails', text2cypher never ran, so cypher_query is stale
+                failed_at = text2cypher_output.get('failed_at_node')
+                cypher = text2cypher_output.get('cypher_query')
+
+                # Only show cypher if it's from the current turn (failed_at_node is NOT guardrails)
+                if cypher and failed_at != 'guardrails':
                     ui.label('🔧 Generated Cypher Query').classes('text-sm font-semibold mb-2')
                     ui.code(cypher, language='cypher').classes('text-sm mb-4 cypher-code-block')
 
@@ -212,8 +219,8 @@ def create_chat_area(
                 ui.markdown(answer).classes('text-base').style('color: var(--neo4j-text-primary);')
 
             # 3. Answer Details (collapsed) - Cypher + results table
-            cypher = final_state.get('cypher_query')
-            results = final_state.get('query_results')
+            cypher = text2cypher_output.get('cypher_query')
+            results = text2cypher_output.get('query_results')
 
             if cypher or results:
                 with ui.expansion('📊 Answer Details').props('dense').classes('w-full mb-2'):
