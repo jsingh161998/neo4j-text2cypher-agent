@@ -9,8 +9,6 @@ import queue
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from nicegui import ui
-
 
 class WorkflowStreamer:
     """Handles LangGraph workflow streaming with status bar progress indicator."""
@@ -47,11 +45,7 @@ class WorkflowStreamer:
             Final workflow state with _execution_details
         """
         return await self._stream_with_status_bar(
-            initial_state,
-            config,
-            progress_bar,
-            progress_spinner,
-            steps_container
+            initial_state, config, progress_bar, progress_spinner, steps_container
         )
 
     async def _stream_with_status_bar(
@@ -65,6 +59,7 @@ class WorkflowStreamer:
         """Stream workflow with status bar (simplified - no live step tree)."""
         # Track state
         final_state = None
+        neo4j_result = None  # Track custom stream data
         step_labels = {}  # node_name -> {"start_time": float, "completed": bool, ...}
         overall_start_time = time.time()
         current_step_name = None
@@ -77,10 +72,7 @@ class WorkflowStreamer:
             """Run workflow stream and put chunks in queue."""
             try:
                 for chunk in self.workflow.stream(
-                    initial_state,
-                    config,
-                    stream_mode=["values", "debug"],
-                    subgraphs=True
+                    initial_state, config, stream_mode=["values", "debug", "custom"], subgraphs=True
                 ):
                     chunk_queue.put(chunk)
                 chunk_queue.put(None)  # Signal completion
@@ -110,7 +102,7 @@ class WorkflowStreamer:
             # Get next chunk with timeout
             try:
                 chunk = await asyncio.to_thread(chunk_queue.get, timeout=0.5)
-            except:
+            except queue.Empty:
                 # Timeout - continue waiting
                 continue
 
@@ -124,20 +116,20 @@ class WorkflowStreamer:
 
             # Use debug mode events to track task start/completion
             if mode == "debug":
-                event_type = data.get('type', 'unknown')
-                payload = data.get('payload', {})
+                event_type = data.get("type", "unknown")
+                payload = data.get("payload", {})
 
                 # Use debug events to detect task start/end
                 if event_type == "task":
-                    task_name = payload.get('name', '')
+                    task_name = payload.get("name", "")
                     # Skip internal nodes
-                    if task_name and not task_name.startswith('__'):
+                    if task_name and not task_name.startswith("__"):
                         is_subgraph = bool(namespace)
 
                         # Extract parent node name from namespace if subgraph
                         parent_node = None
                         if is_subgraph and namespace:
-                            parent_node = namespace[0].split(':')[0]
+                            parent_node = namespace[0].split(":")[0]
 
                         # Task started - TRACK DATA ONLY (don't render live labels)
                         if task_name not in step_labels:
@@ -145,7 +137,7 @@ class WorkflowStreamer:
                                 "start_time": time.time(),
                                 "completed": False,
                                 "is_subgraph": is_subgraph,
-                                "parent_node": parent_node
+                                "parent_node": parent_node,
                             }
 
                             # Update status bar for ALL nodes (main and subgraph)
@@ -157,7 +149,7 @@ class WorkflowStreamer:
                             update_status_bar()
 
                 elif event_type == "task_result":
-                    task_name = payload.get('name', '')
+                    task_name = payload.get("name", "")
                     if task_name in step_labels and not step_labels[task_name].get("completed"):
                         # Task completed - update data
                         step_info = step_labels[task_name]
@@ -177,16 +169,33 @@ class WorkflowStreamer:
                 if not namespace:
                     final_state = data
 
+            elif mode == "custom":
+                # Handle custom stream (e.g., neo4j_result from executor)
+                if "neo4j_result" in data:
+                    neo4j_result = data["neo4j_result"]
+
+        # Cleanup: Shutdown executor and wait for background thread to finish
+        executor.shutdown(wait=True)
+
         # When workflow completes, clear status bar and spinner
-        if progress_bar:
-            progress_bar.delete()
-        if progress_spinner:
-            progress_spinner.delete()
+        # Check if components still exist before deletion to avoid race conditions
+        try:
+            if progress_bar and hasattr(progress_bar, 'delete'):
+                progress_bar.delete()
+        except Exception:
+            pass  # Component already deleted or invalid
+
+        try:
+            if progress_spinner and hasattr(progress_spinner, 'delete'):
+                progress_spinner.delete()
+        except Exception:
+            pass  # Component already deleted or invalid
 
         # Store execution details for rendering in summary
-        final_state['_execution_details'] = {
-            'elapsed_total': time.time() - overall_start_time,
-            'step_labels': step_labels
+        final_state["_execution_details"] = {
+            "elapsed_total": time.time() - overall_start_time,
+            "step_labels": step_labels,
         }
+        final_state["_neo4j_result"] = neo4j_result  # Attach custom stream data
 
         return final_state

@@ -11,18 +11,18 @@ def setup_neo4j_theme():
 
     # Set NiceGUI color palette to Neo4j colors
     ui.colors(
-        primary='#0A6190',    # Neo4j Blue (Baltic-50)
-        secondary='#5DB3BF',  # Light blue
-        accent='#8FE3E8',     # Accent blue
-        positive='#3F7824',   # Success green
-        negative='#D43300',   # Error red
-        warning='#FFC450',    # Warning yellow
-        info='#014063',       # Dark blue
+        primary="#0A6190",  # Neo4j Blue (Baltic-50)
+        secondary="#5DB3BF",  # Light blue
+        accent="#8FE3E8",  # Accent blue
+        positive="#3F7824",  # Success green
+        negative="#D43300",  # Error red
+        warning="#FFC450",  # Warning yellow
+        info="#014063",  # Dark blue
     )
 
     # Add custom CSS for Neo4j-inspired styling and dark mode support
     # Start in dark mode by default (prevents flash)
-    ui.add_head_html('''
+    ui.add_head_html("""
         <script>
             // Set dark mode immediately before page renders to prevent flash
             document.documentElement.classList.add('dark-mode');
@@ -294,32 +294,30 @@ def setup_neo4j_theme():
             }
 
             /* Answer expansion - dark charcoal background in dark mode (Streamlit-style) */
-            body.dark-mode .q-expansion-item:has([aria-label*="Answer"]:not([aria-label*="Details"])) .q-expansion-item__content {
+            body.dark-mode .answer-expansion .q-expansion-item__content {
                 background: #0e1117 !important;
             }
 
             /* Keep white in light mode */
-            .q-expansion-item:has([aria-label*="Answer"]:not([aria-label*="Details"])) .q-expansion-item__content {
+            .answer-expansion .q-expansion-item__content {
                 background: #ffffff !important;
             }
 
             /* Answer Details expansion - same dark charcoal (Streamlit-style) */
-            body.dark-mode .q-expansion-item:has([aria-label*="Answer Details"]) .q-expansion-item__content {
+            body.dark-mode .answer-details-expansion .q-expansion-item__content {
                 background: #0e1117 !important;
             }
 
-            .q-expansion-item:has([aria-label*="Answer Details"]) .q-expansion-item__content {
+            .answer-details-expansion .q-expansion-item__content {
                 background: #ffffff !important;
             }
 
             /* Execution Details/Summary expansion - same dark charcoal (Streamlit-style) */
-            body.dark-mode .q-expansion-item:has([aria-label*="Execution Details"]) .q-expansion-item__content,
-            body.dark-mode .q-expansion-item:has([aria-label*="Execution Summary"]) .q-expansion-item__content {
+            body.dark-mode .execution-summary-expansion .q-expansion-item__content {
                 background: #0e1117 !important;
             }
 
-            .q-expansion-item:has([aria-label*="Execution Details"]) .q-expansion-item__content,
-            .q-expansion-item:has([aria-label*="Execution Summary"]) .q-expansion-item__content {
+            .execution-summary-expansion .q-expansion-item__content {
                 background: #ffffff !important;
             }
 
@@ -366,28 +364,6 @@ def setup_neo4j_theme():
 
             .cypher-code-block pre {
                 background: #f5f5f5 !important;
-            }
-
-            /* Fix syntax highlighting colors for better contrast */
-            /* Dark mode - lighter colors for readability */
-            body.dark-mode .cypher-code-block .hljs-string,
-            body.dark-mode .cypher-code-block .hljs-attr,
-            body.dark-mode .cypher-code-block .hljs-template-variable {
-                color: #98c379 !important;  /* Light green for strings */
-            }
-
-            body.dark-mode .cypher-code-block .hljs-keyword,
-            body.dark-mode .cypher-code-block .hljs-selector-tag,
-            body.dark-mode .cypher-code-block .hljs-literal {
-                color: #c678dd !important;  /* Light purple for keywords */
-            }
-
-            body.dark-mode .cypher-code-block .hljs-number {
-                color: #d19a66 !important;  /* Orange for numbers */
-            }
-
-            body.dark-mode .cypher-code-block .hljs-comment {
-                color: #5c6370 !important;  /* Gray for comments */
             }
 
             /* Table cell wrapping - headers stay single line, body cells wrap */
@@ -536,7 +512,7 @@ def setup_neo4j_theme():
             }
 
         </style>
-    ''')
+    """)
 
 
 class ThemeToggle:
@@ -556,8 +532,8 @@ class ThemeToggle:
         Returns:
             ui.icon: The theme toggle icon button
         """
-        self.icon = ui.icon('light_mode', size='md').classes('cursor-pointer text-white')
-        self.icon.on('click', self.toggle)
+        self.icon = ui.icon("light_mode", size="md").classes("cursor-pointer text-white")
+        self.icon.on("click", self.toggle)
         return self.icon
 
     def toggle(self):
@@ -566,8 +542,8 @@ class ThemeToggle:
         if self.is_dark:
             # Switch to dark mode
             ui.run_javascript('document.body.classList.add("dark-mode")')
-            self.icon.props('name=light_mode')
+            self.icon.props("name=light_mode")
         else:
             # Switch to light mode
             ui.run_javascript('document.body.classList.remove("dark-mode")')
-            self.icon.props('name=dark_mode')
+            self.icon.props("name=dark_mode")

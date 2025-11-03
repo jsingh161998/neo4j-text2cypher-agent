@@ -54,6 +54,8 @@ class QueryProcessingSettings(BaseSettings):
     retriever_limit: int = Field(default=10)
     conversation_history_limit: int = Field(default=10)
     max_correction_retries: int = Field(default=3)  # Maximum correction attempts for invalid Cypher
+    show_query_results: bool = Field(default=True)  # Display results table in Answer Details
+    show_visualization: bool = Field(default=True)  # Display graph visualization when available
 
     model_config = SettingsConfigDict(extra="ignore")
 

@@ -12,11 +12,8 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from neo4j_agent.state import WorkflowState
 
-# =============================================================================
+
 # Correction Prompt Templates
-# =============================================================================
-
-
 def create_correction_prompt_template() -> ChatPromptTemplate:
     """
     Create a Text2Cypher query correction prompt template.

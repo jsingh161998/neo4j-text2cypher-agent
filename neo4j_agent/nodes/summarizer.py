@@ -15,12 +15,10 @@ from neo4j_agent.utils.history import (
     format_history_for_prompt,
     get_conversation_history,
 )
+from neo4j_agent.utils.state_helpers import get_text2cypher_output
 
-# =============================================================================
+
 # Summarization Prompt Template
-# =============================================================================
-
-
 def create_summarization_prompt() -> ChatPromptTemplate:
     """Create a summarization prompt template.
 
@@ -61,11 +59,7 @@ Provide a concise, direct answer:"""
     )
 
 
-# =============================================================================
 # Summarizer Node Factory
-# =============================================================================
-
-
 def create_summarizer_node(
     llm: BaseChatModel,
     checkpointer: BaseCheckpointSaver,
@@ -98,8 +92,6 @@ def create_summarizer_node(
         Returns:
             State updates with final_answer
         """
-        from neo4j_agent.utils.state_helpers import get_text2cypher_output
-
         question = state.get("question", "")
         text2cypher_output = get_text2cypher_output(state)
         query_results = text2cypher_output.get("query_results")

@@ -1,19 +1,20 @@
 """Text2Cypher subgraph for Cypher generation, validation, correction, and execution."""
 
-from typing import Any, Literal
+from typing import Literal
 
 from langchain_core.language_models import BaseChatModel
 from langchain_neo4j import Neo4jGraph
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import END, START, StateGraph
 
 from neo4j_agent.state import WorkflowState
-from neo4j_agent.subgraphs.text2cypher.nodes.generator import create_generator_node
-from neo4j_agent.subgraphs.text2cypher.nodes.validator import create_validator_node
 from neo4j_agent.subgraphs.text2cypher.nodes.corrector import create_corrector_node
 from neo4j_agent.subgraphs.text2cypher.nodes.executor import create_executor_node
+from neo4j_agent.subgraphs.text2cypher.nodes.generator import create_generator_node
+from neo4j_agent.subgraphs.text2cypher.nodes.validator import create_validator_node
 from neo4j_agent.utils.config import QueryProcessingSettings
 from neo4j_agent.utils.retriever import ExampleRetriever
+from neo4j_agent.utils.state_helpers import get_text2cypher_output
 
 
 def create_text2cypher_subgraph(
@@ -46,6 +47,7 @@ def create_text2cypher_subgraph(
     Returns:
         Compiled subgraph (StateGraph)
     """
+
     # Create routing function with max_retries from settings
     def route_after_validation(
         state: WorkflowState,
@@ -59,7 +61,9 @@ def create_text2cypher_subgraph(
             Next node: "corrector" if error and retries left, "executor" if valid, "__end__" if max retries
         """
         error = state.get("error")
-        retry_count = state.get("retry_count", 0)
+        # Get retry_count from nested text2cypher_output (not top-level state)
+        text2cypher_output = get_text2cypher_output(state)
+        retry_count = text2cypher_output.get("retry_count", 0)
         max_retries = query_settings.max_correction_retries
 
         if error:

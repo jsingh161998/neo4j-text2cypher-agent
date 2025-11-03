@@ -1,5 +1,4 @@
 """Semantic similarity-based Cypher example retriever."""
-import os
 
 from langchain_core.example_selectors import SemanticSimilarityExampleSelector
 from langchain_core.vectorstores import InMemoryVectorStore
@@ -132,7 +131,7 @@ class ExampleRetriever:
         formatted_examples = []
         for example in examples:
             formatted_examples.append(
-                f"Question: {example['question']}\n" f"Cypher: {example['query']}"
+                f"Question: {example['question']}\nCypher: {example['query']}"
             )
 
         return "\n\n".join(formatted_examples)

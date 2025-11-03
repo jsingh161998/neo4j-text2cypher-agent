@@ -5,7 +5,6 @@ Based on LangGraph documentation: https://python.langchain.com/docs/tutorials/gr
 """
 
 import time
-from typing import Any
 
 from langchain_neo4j import Neo4jGraph
 from langgraph.config import get_stream_writer
@@ -22,11 +21,7 @@ except ImportError:
     HAS_SANITIZE = False
 
 
-# =============================================================================
 # Executor Node Factory
-# =============================================================================
-
-
 def create_executor_node(graph: Neo4jGraph):
     """Factory to create the Cypher execution node.
 
@@ -53,7 +48,10 @@ def create_executor_node(graph: Neo4jGraph):
         Returns:
             State updates with query results (serializable only)
         """
-        from neo4j_agent.utils.state_helpers import get_text2cypher_output, create_text2cypher_update
+        from neo4j_agent.utils.state_helpers import (
+            create_text2cypher_update,
+            get_text2cypher_output,
+        )
 
         text2cypher_output = get_text2cypher_output(state)
         cypher_query = text2cypher_output.get("cypher_query", "")
@@ -61,10 +59,7 @@ def create_executor_node(graph: Neo4jGraph):
         if not cypher_query or not cypher_query.strip():
             return {
                 "error": "No Cypher query to execute",
-                **create_text2cypher_update(
-                    query_results=[],
-                    failed_at_node="executor"
-                )
+                **create_text2cypher_update(query_results=[], failed_at_node="executor"),
             }
 
         # Execute query with session approach to get Result object for visualization
@@ -90,19 +85,15 @@ def create_executor_node(graph: Neo4jGraph):
             return {
                 "error": None,  # Clear any previous errors
                 **create_text2cypher_update(
-                    query_results=records if records else [],
-                    execution_time=execution_time
-                )
+                    query_results=records if records else [], execution_time=execution_time
+                ),
             }
 
         except Exception as e:
             error_msg = f"Execution error: {str(e)}"
             return {
                 "error": error_msg,
-                **create_text2cypher_update(
-                    query_results=[],
-                    failed_at_node="executor"
-                )
+                **create_text2cypher_update(query_results=[], failed_at_node="executor"),
             }
 
     return execute_cypher

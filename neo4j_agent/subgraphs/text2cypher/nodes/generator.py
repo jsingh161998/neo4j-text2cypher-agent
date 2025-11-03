@@ -14,11 +14,8 @@ from neo4j_agent.utils.history import (
 )
 from neo4j_agent.utils.retriever import ExampleRetriever
 
-# =============================================================================
+
 # Generation Prompt Templates
-# =============================================================================
-
-
 def create_generation_prompt_template(result_limit: int) -> ChatPromptTemplate:
     """Create Text2Cypher generation prompt template.
 

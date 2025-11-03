@@ -20,11 +20,8 @@ from neo4j_agent.utils.history import (
     get_conversation_history,
 )
 
-# =============================================================================
+
 # Pydantic Models for Structured Output
-# =============================================================================
-
-
 class ValidateCypherOutput(BaseModel):
     """Structured output for LLM-based semantic validation."""
 
@@ -34,11 +31,7 @@ class ValidateCypherOutput(BaseModel):
     )
 
 
-# =============================================================================
 # Validation Prompt Templates
-# =============================================================================
-
-
 def create_semantic_validation_prompt() -> ChatPromptTemplate:
     """
     Create a Text2Cypher validation prompt template for semantic validation only.
@@ -48,45 +41,51 @@ def create_semantic_validation_prompt() -> ChatPromptTemplate:
     """
 
     validate_cypher_system = """
-    You are a Cypher expert reviewing queries for OBJECTIVE LOGICAL ERRORS ONLY.
+    You are a Cypher query validator checking for TECHNICAL ERRORS ONLY.
 
-    Your job: Catch bugs that would cause failures or incorrect results.
-    NOT your job: Question filter choices, critique WHERE clause conditions, or second-guess query structure.
-
-    The query generator is context-aware and makes intelligent decisions.
-    Trust its choices unless there's a clear logical error.
+    CRITICAL RULES:
+    1. The generator is intelligent and uses ONLY properties that exist in the schema
+    2. DO NOT demand properties that don't exist in the schema
+    3. DO NOT re-interpret the question - trust the generator's interpretation
+    4. Only flag TECHNICAL bugs that would cause query failures
     """
 
-    validate_cypher_user = """Check for OBJECTIVE errors that would cause failures:
+    validate_cypher_user = """Validate this query for TECHNICAL CORRECTNESS.
 
-    1. **Undefined variables**
-       - Variables used in WHERE/RETURN that weren't defined in MATCH
+    Schema (these are the ONLY properties available in the database):
+    {schema}
 
-    2. **Logical contradictions**
-       - Mutually exclusive conditions (e.g., x < 10 AND x > 100)
-
-    3. **Missing critical elements**
-       - Missing ORDER BY when question asks "top N"
-       - Missing aggregation (COUNT/SUM/AVG) when question explicitly asks for it
-       - Missing LIMIT (should almost always be present)
-
-    4. **Performance issues**
-       - Unintentional cartesian products
-       - Patterns returning excessive data without LIMIT
-
-    DO NOT flag as errors:
-    - WHERE clause filters or conditions (generator's decision)
-    - Query structure choices (generator's decision)
-    - Schema compliance (handled by syntax validation)
+    Question (for context only): {question}
+    Query to validate: {cypher}
 
     {conversation_context}
 
-    Question: {question}
-    Query: {cypher}
-    Schema: {schema}
+    Check for these TECHNICAL ERRORS:
 
-    Report only ACTUAL BUGS that would cause failures.
-    If the query will execute and return relevant data, it's VALID."""
+    1. **Undefined variables**
+       - A variable is used in WHERE/RETURN but never defined in any MATCH clause
+       - In "MATCH (x:Label)", the variable "x" IS DEFINED
+       - Only flag if a variable appears nowhere in MATCH
+
+    2. **Properties not in schema**
+       - Accessing a property that doesn't exist for that node label in the schema
+       - Check the schema carefully - only flag if the property is genuinely missing
+       - If schema shows a label's properties, accessing other properties is invalid
+
+    3. **Logical contradictions**
+       - WHERE conditions that cannot be true simultaneously
+
+    VALIDATION RULES:
+    - If a variable appears in MATCH, it IS DEFINED (mark valid)
+    - If a property exists in schema for that label, it IS VALID (mark valid)
+    - DO NOT demand properties that don't exist in the schema
+    - DO NOT question the generator's interpretation of the question
+    - Only flag actual technical bugs, not interpretation differences
+
+    Mark as VALID if:
+    - All variables are defined in MATCH clauses
+    - All properties exist in the schema for their labels
+    - No logical contradictions exist"""
 
     return ChatPromptTemplate.from_messages(
         [

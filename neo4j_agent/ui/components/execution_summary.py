@@ -7,6 +7,8 @@ Renders execution information including:
 
 from nicegui import ui
 
+from neo4j_agent.ui.components.cypher_highlight import render_cypher
+
 
 def render_execution_summary(final_state: dict, is_error: bool):
     """Render execution summary section (for both success and error cases).
@@ -23,14 +25,16 @@ def render_execution_summary(final_state: dict, is_error: bool):
     step_labels = execution_details.get("step_labels", {})
 
     # Expanded on error, collapsed on success
-    with (
-        ui.expansion(
-            f"🔍 Execution Summary ({elapsed_total:.1f}s)",
-            value=is_error,  # Auto-expand on error
-        )
-        .props("dense")
-        .classes("w-full mb-2")
-    ):
+    expansion_summary = (
+        ui.expansion(value=is_error).props("dense").classes("w-full mb-2 execution-summary-expansion")
+    )  # Auto-expand on error
+    with expansion_summary:
+        # Custom header with icon
+        with expansion_summary.add_slot("header"), ui.row().classes("items-center gap-2"):
+            ui.icon("troubleshoot", size="sm").classes("material-symbols-outlined").style(
+                "color: #90A4AE !important;"
+            )
+            ui.label(f"Execution Summary ({elapsed_total:.1f}s)").classes("text-sm")
         # Wrap all content in a column with gap-0 to remove default spacing
         with ui.column().classes("gap-0 w-full"):
             # ========================================
@@ -138,10 +142,9 @@ def render_execution_summary(final_state: dict, is_error: bool):
                             "margin-left: 3rem; color: var(--neo4j-text-secondary);"
                         )
 
-                        # Query code block
-                        ui.code(query, language="cypher").classes(
-                            "text-xs cypher-code-block"
-                        ).style("margin-left: 3rem; max-height: 150px; overflow-y: auto;")
+                        # Query code block with syntax highlighting
+                        with ui.element("div").style("margin-left: 3rem; max-height: 150px; overflow-y: auto;"):
+                            render_cypher(query, classes="text-xs")
 
                         # Validation result
                         if validation_errors:

@@ -1,4 +1,5 @@
 """Neo4j schema management with caching."""
+
 import json
 from pathlib import Path
 

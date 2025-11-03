@@ -1,4 +1,5 @@
 """State models for the Text2Cypher workflow."""
+
 from typing import Annotated, Any
 
 from langchain_core.messages import BaseMessage
@@ -7,8 +8,7 @@ from typing_extensions import TypedDict
 
 
 def merge_text2cypher_output(
-    existing: dict[str, Any] | None,
-    updates: dict[str, Any] | None
+    existing: dict[str, Any] | None, updates: dict[str, Any] | None
 ) -> dict[str, Any] | None:
     """Custom reducer for text2cypher_output field.
 
@@ -53,6 +53,7 @@ class Text2CypherOutput(TypedDict):
                                 Format: [{"attempt": 1, "query": "...", "validation_errors": [...], "source": "generator"|"corrector"}]
         failed_at_node: Which text2cypher node failed (generator/validator/corrector/executor)
     """
+
     cypher_query: str | None
     query_results: list[dict] | None
     execution_time: float | None
@@ -84,10 +85,7 @@ class WorkflowState(TypedDict):
     error: str | None
 
     # Subgraph outputs - uses custom reducer to safely merge partial updates
-    text2cypher_output: Annotated[
-        Text2CypherOutput | None,
-        merge_text2cypher_output
-    ]
+    text2cypher_output: Annotated[Text2CypherOutput | None, merge_text2cypher_output]
 
     # Workflow-level metadata
     num_examples_used: int | None

@@ -1,4 +1,5 @@
 """LLM factory for multi-provider support."""
+
 from langchain_core.language_models import BaseChatModel
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
@@ -28,6 +29,8 @@ def create_llm(settings: LLMSettings) -> BaseChatModel:
         return ChatOpenAI(
             model=settings.model,
             temperature=settings.temperature,
+            max_retries=3,
+            request_timeout=60,
         )
     elif settings.provider == "azure_openai":
         # API key from env: AZURE_OPENAI_API_KEY
@@ -38,6 +41,8 @@ def create_llm(settings: LLMSettings) -> BaseChatModel:
             azure_endpoint=settings.azure_endpoint,
             azure_deployment=settings.azure_deployment,
             api_version=settings.api_version or "2024-02-01",
+            max_retries=3,
+            request_timeout=60,
         )
 
     raise ValueError(f"Unsupported LLM provider: {settings.provider}")

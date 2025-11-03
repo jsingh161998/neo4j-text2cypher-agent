@@ -23,6 +23,8 @@ query_processing:
   retriever_limit: 5                 # Number of similar questions and cypher pair examples to retrieve
   conversation_history_limit: 5      # Number of previous Q&A pairs to include in prompts
   max_correction_retries: 3          # Maximum attempts to correct invalid Cypher queries
+  show_query_results: true           # Show results table by default
+  show_visualization: true           # Show graph visualization by default
 
 ui:
   title: "IQS Data Explorer"

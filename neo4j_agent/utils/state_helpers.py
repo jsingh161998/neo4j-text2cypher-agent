@@ -6,7 +6,7 @@ and reduce boilerplate in node functions.
 
 from typing import Any
 
-from neo4j_agent.state import Text2CypherOutput, WorkflowState
+from neo4j_agent.state import WorkflowState
 
 
 def get_text2cypher_output(state: WorkflowState) -> dict[str, Any]:
@@ -27,7 +27,7 @@ def get_text2cypher_output(state: WorkflowState) -> dict[str, Any]:
         "execution_time": None,
         "retry_count": 0,
         "query_generation_trace": [],
-        "failed_at_node": None
+        "failed_at_node": None,
     }
 
 
@@ -36,7 +36,7 @@ def append_to_query_trace(
     attempt: int,
     query: str,
     source: str,
-    validation_errors: list[str] | None = None
+    validation_errors: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Append entry to query_generation_trace and return complete list.
 
@@ -54,20 +54,19 @@ def append_to_query_trace(
     trace = output.get("query_generation_trace") or []
 
     # Append new entry
-    trace.append({
-        "attempt": attempt,
-        "query": query,
-        "validation_errors": validation_errors or [],
-        "source": source
-    })
+    trace.append(
+        {
+            "attempt": attempt,
+            "query": query,
+            "validation_errors": validation_errors or [],
+            "source": source,
+        }
+    )
 
     return trace
 
 
-def update_last_trace_entry(
-    state: WorkflowState,
-    **updates
-) -> list[dict[str, Any]]:
+def update_last_trace_entry(state: WorkflowState, **updates) -> list[dict[str, Any]]:
     """Update the last entry in query_generation_trace.
 
     Useful for validator adding validation_errors to most recent attempt.

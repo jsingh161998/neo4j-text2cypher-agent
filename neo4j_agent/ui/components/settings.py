@@ -32,6 +32,8 @@ def create_settings_modal(settings: AppSettings) -> callable:
                 "retriever_limit": settings.query_processing.retriever_limit,
                 "conversation_history_limit": settings.query_processing.conversation_history_limit,
                 "max_correction_retries": settings.query_processing.max_correction_retries,
+                "show_query_results": settings.query_processing.show_query_results,
+                "show_visualization": settings.query_processing.show_visualization,
             }
         return app.storage.client["query_settings"]
 
@@ -128,6 +130,34 @@ def create_settings_modal(settings: AppSettings) -> callable:
                     "text-sm mb-3"
                 ).style("color: var(--neo4j-text-secondary)")
 
+                ui.separator().classes("mb-3").style("background: var(--neo4j-border)")
+
+                # Show Query Results Checkbox
+                show_results_checkbox = ui.checkbox(
+                    "Show query results table", value=current_settings["show_query_results"]
+                )
+                if view_only:
+                    show_results_checkbox.disable()
+                show_results_checkbox.classes("settings-checkbox")
+                with ui.row().classes("ml-8"):
+                    ui.label("Display results table in Answer Details section").classes(
+                        "text-sm"
+                    ).style("color: var(--neo4j-text-muted)")
+
+                ui.separator().classes("mb-3").style("background: var(--neo4j-border)")
+
+                # Show Visualization Checkbox
+                show_viz_checkbox = ui.checkbox(
+                    "Show graph visualization", value=current_settings["show_visualization"]
+                )
+                if view_only:
+                    show_viz_checkbox.disable()
+                show_viz_checkbox.classes("settings-checkbox")
+                with ui.row().classes("ml-8"):
+                    ui.label(
+                        "Display interactive graph when results contain nodes/relationships"
+                    ).classes("text-sm").style("color: var(--neo4j-text-muted)")
+
             # Action Buttons (outside content area, at bottom)
             if not view_only:
                 ui.separator().style("background: var(--neo4j-border)")
@@ -140,6 +170,8 @@ def create_settings_modal(settings: AppSettings) -> callable:
                             retriever_limit_slider,
                             history_limit_slider,
                             retries_slider,
+                            show_results_checkbox,
+                            show_viz_checkbox,
                         ),
                     ).props("flat").classes("reset-defaults-btn")
 
@@ -152,17 +184,36 @@ def create_settings_modal(settings: AppSettings) -> callable:
                             retriever_limit_slider.value,
                             history_limit_slider.value,
                             retries_slider.value,
+                            show_results_checkbox.value,
+                            show_viz_checkbox.value,
                         ),
                     ).style("background: #0A6190 !important; color: white !important;")
 
-        def reset_to_defaults(result_slider, retriever_slider, history_slider, retries_slider):
+        def reset_to_defaults(
+            result_slider,
+            retriever_slider,
+            history_slider,
+            retries_slider,
+            show_results_checkbox,
+            show_viz_checkbox,
+        ):
             """Reset all settings to defaults from config.yml."""
             result_slider.value = settings.query_processing.result_limit
             retriever_slider.value = settings.query_processing.retriever_limit
             history_slider.value = settings.query_processing.conversation_history_limit
             retries_slider.value = settings.query_processing.max_correction_retries
+            show_results_checkbox.value = settings.query_processing.show_query_results
+            show_viz_checkbox.value = settings.query_processing.show_visualization
 
-        def save_settings(dialog, result_limit, retriever_limit, history_limit, max_retries):
+        def save_settings(
+            dialog,
+            result_limit,
+            retriever_limit,
+            history_limit,
+            max_retries,
+            show_results,
+            show_viz,
+        ):
             """Save settings to session storage (per-user, no YAML write)."""
             # Store in session storage (persists until session reset/timeout)
             app.storage.client["query_settings"] = {
@@ -170,6 +221,8 @@ def create_settings_modal(settings: AppSettings) -> callable:
                 "retriever_limit": int(retriever_limit),
                 "conversation_history_limit": int(history_limit),
                 "max_correction_retries": int(max_retries),
+                "show_query_results": bool(show_results),
+                "show_visualization": bool(show_viz),
             }
             dialog.close()
             ui.notify("Settings saved for this session", type="positive", position="top")

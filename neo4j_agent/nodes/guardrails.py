@@ -12,10 +12,7 @@ from neo4j_agent.utils.history import (
     get_conversation_history,
 )
 
-# =============================================================================
 # Guardrails Prompt
-# =============================================================================
-
 GUARDRAILS_SYSTEM = """You must decide whether the provided question is in scope.
 Assume the question might be related.
 If you're absolutely sure it is NOT related, output "end".
@@ -26,11 +23,7 @@ Questions that may seem incomplete or out of context on their own could be follo
 Use the conversation history to understand the full context before deciding if a question is out of scope."""
 
 
-# =============================================================================
 # Guardrails Node Factory
-# =============================================================================
-
-
 def create_guardrails_node(
     llm: BaseChatModel,
     schema: str,
@@ -96,7 +89,8 @@ def create_guardrails_node(
         answer = response.content.strip().lower()
 
         # Check if question is valid ("end" means out of scope)
-        if "end" in answer:
+        # Use exact match to avoid false positives (e.g., "recommend ending")
+        if answer == "end":
             return {
                 "error": "Question is out of scope for this system. "
                 "Please ask questions about data in the graph database.",

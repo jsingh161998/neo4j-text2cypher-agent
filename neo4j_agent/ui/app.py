@@ -26,11 +26,10 @@ load_dotenv()
 
 # Parse CLI arguments for config path
 parser = argparse.ArgumentParser(
-    description='Neo4j Text2Cypher Agent - Natural language to Cypher queries'
+    description="Neo4j Text2Cypher Agent - Natural language to Cypher queries"
 )
 parser.add_argument(
-    'config_path',
-    help='Path to application config YAML file (e.g., app-config/honda/config.yml)'
+    "config_path", help="Path to application config YAML file (e.g., app-config/honda/config.yml)"
 )
 args = parser.parse_args()
 config_path = Path(args.config_path).resolve()
@@ -51,6 +50,17 @@ def initialize_app():
     """Initialize application components once at startup."""
     global workflow, graph  # settings already loaded at module level
 
+    # Register custom Cypher lexer with Pygments
+    from pygments.lexers import _mapping
+
+    _mapping.LEXERS["CypherLexer"] = (
+        "neo4j_agent.utils.cypher_lexer",
+        "Cypher",
+        ("cypher",),
+        ("*.cypher", "*.cyp"),
+        (),
+    )
+
     print(f"Initializing {settings.ui.title}...")
     print("✅ Configuration loaded")
 
@@ -58,20 +68,18 @@ def initialize_app():
     graph = create_neo4j_graph(settings.neo4j)
     print("✅ Neo4j connected")
 
-    # Load database schema
-    schema = get_schema(graph, cache_path=settings.schema_cache_path())
+    # Validate schema and LLM can be created (workflow recreates these internally)
+    _ = get_schema(graph, cache_path=settings.schema_cache_path())
     print("✅ Schema loaded")
-
-    # Initialize LLM
-    llm = create_llm(settings.llm)
+    _ = create_llm(settings.llm)
     print("✅ LLM initialized")
 
-    # Create workflow
+    # Create workflow (creates own LLM, schema, retriever internally)
     workflow = create_text2cypher_workflow(settings)
     print("✅ Workflow created")
 
-    # Start background cleanup task
-    asyncio.create_task(cleanup_inactive_sessions(settings))
+    # Start background cleanup task with workflow reference
+    asyncio.create_task(cleanup_inactive_sessions(settings, workflow))
     print("✅ Session cleanup task started")
 
     print("🚀 Application ready!")
@@ -81,7 +89,7 @@ def initialize_app():
 app.on_startup(initialize_app)
 
 
-@ui.page('/')
+@ui.page("/")
 def index():
     """Main page with Text2Cypher chat interface.
 
@@ -97,23 +105,24 @@ def index():
     theme_toggle = ThemeToggle()
 
     # Header with Neo4j branding
-    with ui.header().style('background: #014063 !important'):
-        with ui.row().classes('w-full items-center justify-between px-4'):
-            ui.label(settings.ui.title).classes('text-h4 text-white font-semibold')
-            with ui.row().classes('gap-2 items-center'):
+    with ui.header().style("background: #014063 !important"), \
+         ui.row().classes("w-full items-center justify-between px-4"):
+        ui.label(settings.ui.title).classes("text-h4 text-white font-semibold")
+        with ui.row().classes("gap-2 items-center"):
                 # Theme toggle
                 theme_toggle.create_toggle_button()
 
                 # Settings button (per-session, no YAML writes)
                 open_settings_dialog = create_settings_modal(settings=settings)
-                ui.button(
-                    icon='tune',
-                    on_click=open_settings_dialog
-                ).props('flat round').style('color: white !important').tooltip('Query Settings')
+                ui.button(icon="tune", on_click=open_settings_dialog).props("flat round").style(
+                    "color: white !important"
+                ).tooltip("Query Settings")
 
     # Configure full-height layout (NiceGUI best practice for header + content)
-    ui.context.client.page_container.default_slot.children[0].props(':style-fn="o => ({ height: `calc(100vh - ${o}px)` })"')
-    ui.context.client.content.classes('h-full')
+    ui.context.client.page_container.default_slot.children[0].props(
+        ':style-fn="o => ({ height: `calc(100vh - ${o}px)` })"'
+    )
+    ui.context.client.content.classes("h-full")
 
     # Main layout: Sidebar (left) + Chat area (right)
     # Callback references for sidebar interactions
@@ -130,20 +139,18 @@ def index():
         if clear_chat_ui:
             session.reset_chat(workflow=workflow, clear_ui_callback=clear_chat_ui)
 
-    with ui.row().classes('w-full h-full items-stretch'):
+    with ui.row().classes("w-full h-full items-stretch"):
         # Sidebar - example questions and system info
         create_sidebar(
             settings=settings,
             graph=graph,
             on_example_click=handle_example_click,
-            on_reset_click=handle_reset_chat
+            on_reset_click=handle_reset_chat,
         )
 
         # Chat area - conversation interface with workflow execution
         clear_chat_ui, submit_question_ref = create_chat_area(
-            settings=settings,
-            session=session,
-            workflow=workflow
+            settings=settings, session=session, workflow=workflow
         )
 
 
