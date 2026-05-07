@@ -36,13 +36,11 @@ def create_llm(settings: LLMSettings) -> BaseChatModel:
         # API key from env: AZURE_OPENAI_API_KEY
         # Other settings from YAML config
         return AzureChatOpenAI(
-            model=settings.model,
-            temperature=settings.temperature,
-            azure_endpoint=settings.azure_endpoint,
-            azure_deployment=settings.azure_deployment,
-            api_version=settings.api_version or "2024-02-01",
-            max_retries=3,
-            request_timeout=60,
-        )
+        azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+        api_key=settings.AZURE_OPENAI_KEY,
+        api_version=settings.AZURE_OPENAI_API_VERSION,
+        azure_deployment=settings.AZURE_OPENAI_LLM_DEPLOYMENT,
+        temperature=0.2,
+    )
 
     raise ValueError(f"Unsupported LLM provider: {settings.provider}")

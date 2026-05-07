@@ -1,0 +1,58 @@
+# Neo4j Configuration
+# Connection credentials must be set via environment variables:
+# NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
+neo4j:
+  database: neo4j
+
+# LLM Configuration (REQUIRED)
+# API keys must be set in .env file (LLM_API_KEY or AZURE_OPENAI_API_KEY)
+# All other LLM settings are configured here (no environment variable overrides)
+llm:
+  provider: openai             # REQUIRED: "openai" or "azure_openai"
+  model: gpt-4o                 # REQUIRED: Model name
+  temperature: 0.0              # REQUIRED: 0.0 (deterministic) to 1.0 (creative)
+
+  # Azure OpenAI specific settings (uncomment if provider is azure_openai)
+  # azure_endpoint: https://aa-genai-train-foundry.openai.azure.com/
+  # azure_deployment: gpt-4o
+  # azure_embedding_deployment: text-embedding-ada-002
+  # api_version: 2024-02-01
+
+query_processing:
+  result_limit: 50                   # Max rows returned by Cypher queries
+  retriever_limit: 5                 # Number of similar questions and cypher pair examples to retrieve
+  conversation_history_limit: 5      # Number of previous Q&A pairs to include in prompts
+  max_correction_retries: 3          # Maximum attempts to correct invalid Cypher queries
+  show_query_results: true           # Show results table by default
+  show_visualization: true           # Show graph visualization by default
+
+ui:
+  title: "Schedule Planner Assistant"
+  scope_description: "This application may answer questions related to schedules"
+  session_timeout_minutes: 10  # Clean up inactive sessions after this many minutes
+
+  # Settings modal configuration
+  view_only_settings: false  # If true, settings modal shows values but controls are disabled (read-only mode)
+
+  # Example questions for sidebar (displayed as clickable buttons)
+  example_questions:
+    - "How many flights are in this dataset"
+
+example_queries:
+  - question: How many flights are in this dataset?
+    cypher: |-
+      MATCH (f:Flight) RETURN count(n)
+  - question: Which day has the highest departure counts for spoke cities- Hubs are [CLT,DCA,DFW,JFK,LAX,LGA,ORD,MIA,PHL,PHX] so any airport other than these flights from calcuations
+    cypher: |-
+      MATCH (f:Flight)-[:DEPARTS_FROM]->(a:Airport)
+      WHERE NOT a.AIRPRT_CD IN ['CLT','DCA','DFW','JFK','LAX','LGA','ORD','MIA','PHL','PHX']
+      WITH date(f.DEP_LCL) AS departure_date, count(f) AS flight_count
+      RETURN departure_date, flight_count
+      ORDER BY flight_count DESC
+      LIMIT 1
+  - question: Flights with Turn Time Within 5 Minutes of MOGT
+    cypher: |-
+      MATCH (f:Flight) WHERE abs(f.TURN_TIME - f.MOGT) <= 5 RETURN count(f) AS TightTurnaroundFlights
+  - question: Total Number of Flights
+    cypher: |-
+      MATCH (f:Flight) RETURN count(f) AS TotalFlights

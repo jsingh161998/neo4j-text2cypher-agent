@@ -9,6 +9,7 @@ dependencies = [
     "langchain-core>=0.3.76",
     "langchain-neo4j>=0.5.0",
     "langchain-openai>=0.3.33",
+    "openai>=1.0.0",
     "langgraph>=0.6.8",
     "neo4j>=5.28.2",
     "neo4j-viz>=0.5.0",
