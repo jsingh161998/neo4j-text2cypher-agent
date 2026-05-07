@@ -20,6 +20,61 @@ try:
 except ImportError:
     HAS_SANITIZE = False
 
+# Import Neo4j temporal/spatial types so we can convert them to JSON-friendly
+# forms before they enter LangGraph state. Neo4j returns its own DateTime/Date/
+# Time/Duration/Point classes which msgpack (used by LangGraph's checkpointer)
+# does not know how to serialize, producing errors like:
+#   "Type is not msgpack serializable: DateTime"
+try:
+    from neo4j.time import Date, DateTime, Duration, Time
+
+    _NEO4J_TEMPORAL_TYPES: tuple = (Date, Time, DateTime, Duration)
+except ImportError:
+    _NEO4J_TEMPORAL_TYPES = ()
+
+try:
+    from neo4j.spatial import Point
+
+    _NEO4J_SPATIAL_TYPES: tuple = (Point,)
+except ImportError:
+    _NEO4J_SPATIAL_TYPES = ()
+
+
+def _make_checkpoint_safe(obj):
+    """Recursively convert Neo4j-native types to JSON/msgpack-serializable forms.
+
+    LangGraph checkpointers serialize state with msgpack (via JsonPlusSerializer),
+    which handles Python primitives + stdlib datetime/UUID/Decimal but does NOT
+    handle Neo4j's own temporal (DateTime, Date, Time, Duration) or spatial
+    (Point) classes. This walker converts them in place inside records returned
+    from the driver.
+
+    - neo4j.time.{Date,Time,DateTime,Duration} -> ISO 8601 string
+    - neo4j.spatial.Point                      -> {"srid": int, "coordinates": [...]}
+    - bytes                                    -> utf-8 string (best effort)
+    - dict / list / tuple                      -> recursed
+    - everything else                          -> returned as-is
+
+    Args:
+        obj: Arbitrary value pulled from a Neo4j record.
+
+    Returns:
+        A structurally identical value with non-serializable types replaced.
+    """
+    if _NEO4J_TEMPORAL_TYPES and isinstance(obj, _NEO4J_TEMPORAL_TYPES):
+        # All four temporal types expose iso_format()
+        return obj.iso_format()
+    if _NEO4J_SPATIAL_TYPES and isinstance(obj, _NEO4J_SPATIAL_TYPES):
+        # Point is tuple-like; srid identifies the coordinate system
+        return {"srid": obj.srid, "coordinates": list(obj)}
+    if isinstance(obj, dict):
+        return {k: _make_checkpoint_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_checkpoint_safe(v) for v in obj]
+    if isinstance(obj, bytes):
+        return obj.decode("utf-8", errors="replace")
+    return obj
+
 
 # Executor Node Factory
 def create_executor_node(graph: Neo4jGraph):
@@ -71,9 +126,13 @@ def create_executor_node(graph: Neo4jGraph):
                 result_obj = session.run(Query(text=cypher_query, timeout=graph.timeout))
                 records = [r.data() for r in result_obj]
 
-                # Sanitize values if enabled
+                # Sanitize values if enabled (strips embeddings/oversized lists)
                 if graph.sanitize and HAS_SANITIZE:
                     records = [_value_sanitize(el) for el in records]
+
+                # Convert Neo4j temporal/spatial types BEFORE values enter state.
+                # Without this, msgpack checkpointing fails on neo4j.time.DateTime etc.
+                records = [_make_checkpoint_safe(el) for el in records]
 
             execution_time = time.time() - start_time
 
