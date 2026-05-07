@@ -36,7 +36,13 @@ ui:
 
   # Example questions for sidebar (displayed as clickable buttons)
   example_questions:
-    - "How many flights are in this dataset"
+    - "How many departures do we have from DFW on 18th June in the Proposal 2026-06 F0"
+    - "How many departures from DFW on widebodies in the Proposal 2026-06 F0 on 18th June "
+    - "How many departures from DFW on widebodies by subfleet type in the Proposal 2026-06 F0 on 18th June"
+    - "How many widebody departures in DFW on 18th June in 2026 in Proposal 2026-06 F0 schedule are on turn_time over MOGT <= 5 , time over MOGT is string which needs to be converted to string"
+    - "What are the LOF and Flight Date groups that what is the lowest average time over MOGT to highest, exclude day_seq =1 in calculations for the Schedule Proposal 2026-06 F0, timeover MOGT is already in minutes but is in string"
+    - "For Airports which are not hubs [CLT, DCA, DFW, JFK, LAX, LGA,ORD,PHL,PHX,MIA] spokes with more than 10 departures in the schedule Proposal 2026-06 F0, show me the 10 lowest T0 performance"
+    - "For Airports which are not hubs [CLT, DCA, DFW, JFK, LAX, LGA,ORD,PHL,PHX,MIA] spokes with more than 10 departures in the schedule Proposal 2026-06 F0, show me the 10 lowest T0 performance,and then for these 10 lowest T0, sort them by lowest average time over MOGT"
 
 example_queries:
   - question: How many flights are in this dataset?
@@ -64,3 +70,49 @@ example_queries:
   - question: Show me airports
     cypher: |-
       MATCH (a:Airport) RETURN a
+  - question: How many departures from DFW on widebodies in the Proposal 2026-06 F0 on 18th June
+    cypher: |-
+      MATCH (s:Schedule {SCHEDULE: 'Proposal 2026-06 F0'})-[:HAS_FLIGHT]->(f:Flight {BODY_TYPE: 'WB', DEP_STATION: 'DFW'})-[:FLIES_ON]->(fd:FlightDate {depDate: date('2026-06-18')})
+      RETURN count(f) AS NumberOfDepartures
+  - question: How many departures from DFW on widebodies by subfleet type in the Proposal 2026-06 F0 on 18th June
+    cypher: |-
+      MATCH (f:Flight)-[:FLIES_ON]->(fd:FlightDate)
+      WHERE f.DEP_STATION = 'DFW'
+      AND f.BODY_TYPE = 'WB'
+      AND f.SCHEDULE = 'Proposal 2026-06 F0'
+      AND fd.depDate = date('2026-06-18')
+      RETURN f.EQP AS SubfleetType, count(f) AS NumberOfDepartures
+
+  - question: How many widebody departures in DFW on 18th June in 2026 in Proposal 2026-06 F0 schedule are on turn_time over MOGT <= 5 , time over MOGT is string which needs to be converted to string
+    cypher: |-
+      MATCH (s:Schedule {SCHEDULE: 'Proposal 2026-06 F0'})-[:HAS_FLIGHT]->(f:Flight {BODY_TYPE: 'WB'})-[:DEPARTS_FROM]->(a:Airport {AIRPRT_CD: 'DFW'})
+      WHERE f.DEP_LCL >= datetime('2026-06-18T00:00:00') AND f.DEP_LCL < datetime('2026-06-19T00:00:00')
+      AND toInteger(f.TIME_OVER_MOGT) <= 20
+      RETURN count(f) AS WidebodyDepartures
+  - question: What are the LOF and Flight Date groups that what is the lowest average time over MOGT to highest, exclude day_seq =1 in calculations for the Schedule Proposal 2026-06 F0, timeover MOGT is already in minutes but is in string
+    cypher: |-
+      MATCH (s:Schedule {SCHEDULE: 'Proposal 2026-06 F0'})-[:HAS_FLIGHT]->(f:Flight)-[:HAS_LOF]->(l:LOF),       (f)-[:FLIES_ON]->(fd:FlightDate)
+      WHERE f.DAY_SEQ <> 1
+      WITH l.LOF AS lof, fd.depDate AS flightDate, avg(toInteger(f.TIME_OVER_MOGT)) AS avgTimeOverMOGT
+      RETURN lof, flightDate, avgTimeOverMOGT
+      ORDER BY avgTimeOverMOGT ASC
+  - question: For Airports which are not hubs [CLT, DCA, DFW, JFK, LAX, LGA,ORD,PHL,PHX,MIA] spokes with more than 10 departures in the schedule Proposal 2026-06 F0, show me the 10 lowest T0 performance
+    cypher: |-
+      MATCH (f:Flight)-[d:DEPARTS_FROM]->(a:Airport)
+      WHERE f.SCHEDULE = 'Proposal 2026-06 F0' AND NOT a.AIRPRT_CD IN ['CLT', 'DCA', 'DFW', 'JFK', 'LAX', 'LGA', 'ORD', 'PHL', 'PHX', 'MIA']
+      AND f.BODY_TYPE <> 'WB'
+      WITH a, count(f) AS departures, round(avg(d.T0),2) AS avg_T0
+      WHERE departures > 10
+      RETURN a.AIRPRT_CD, departures, avg_T0
+      ORDER BY avg_T0 ASC
+      LIMIT 10
+  - question: For Airports which are not hubs [CLT, DCA, DFW, JFK, LAX, LGA,ORD,PHL,PHX,MIA] spokes with more than 10 departures in the schedule Proposal 2026-06 F0, show me the 10 lowest T0 performance,and then for these 10 lowest T0, sort them by lowest average time over MOGT
+    cypher: |-
+      MATCH (s:Schedule {SCHEDULE: 'Proposal 2026-06 F0'})-[:HAS_FLIGHT]->(f:Flight)-[d:DEPARTS_FROM]->(a:Airport)
+      WHERE NOT a.AIRPRT_CD IN ['CLT', 'DCA', 'DFW', 'JFK', 'LAX', 'LGA', 'ORD', 'PHL', 'PHX', 'MIA']
+      AND f.BODY_TYPE <> 'WB'
+      WITH a, count(f) AS departures, avg(d.T0) AS avg_T0, round(avg(toInteger(f.TIME_OVER_MOGT)),2) AS avg_time_over_mogt
+      WHERE departures > 10
+      RETURN a.AIRPRT_CD AS airport, avg_T0, avg_time_over_mogt
+      ORDER BY avg_T0 ASC, avg_time_over_mogt ASC
+      LIMIT 10
